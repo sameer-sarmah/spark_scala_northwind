@@ -1,3 +1,5 @@
+package com.example
+
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -33,10 +35,20 @@ object  NorthWindSQL extends App{
     .option("ignoreLeadingWhiteSpace", true)
     .option("ignoreTrailingWhiteSpace", true)
     .csv("data/northwind/employees.csv");
+  val customersDf: Dataset[Row] = spSession.read.option("header", true)
+    .option("ignoreLeadingWhiteSpace", true)
+    .option("ignoreTrailingWhiteSpace", true)
+    .csv("data/northwind/customers.csv");
+  val shippersDf: Dataset[Row] = spSession.read.option("header", true)
+    .option("ignoreLeadingWhiteSpace", true)
+    .option("ignoreTrailingWhiteSpace", true)
+    .csv("data/northwind/shippers.csv");
   ordersDf.createOrReplaceTempView("Orders")
   orderDetailsDf.createOrReplaceTempView("OrderDetails")
   productsDf.createOrReplaceTempView("Products")
   employeesDf.createOrReplaceTempView("Employees")
+  customersDf.createOrReplaceTempView("Customers")
+  shippersDf.createOrReplaceTempView("Shippers")
 
   val orderFromGer="""SELECT customerID as client,shipAddress as address,shipCity as city from Orders
       WHERE shipCountry = 'Germany'
@@ -84,4 +96,20 @@ object  NorthWindSQL extends App{
   """
   val empManagerResult=spSession.sql(empManager)
   empManagerResult.show()
+
+  val oldestEmployee="""
+      SELECT emp.firstName ,CAST(datediff(current_date,CAST(emp.birthDate AS Date))/365 AS DECIMAL(4,0)) AS AGE FROM Employees emp
+      ORDER BY AGE DESC
+    """
+  val oldestEmployeeResult=spSession.sql(oldestEmployee)
+  oldestEmployeeResult.show()
+
+  val shippedToMadridBySpeedy=
+    """SELECT cus.contactName,emp.firstName FROM Orders o INNER JOIN Customers cus ON
+       o.customerID = cus.customerID INNER JOIN Employees emp ON o.employeeID=emp.employeeID
+       INNER JOIN Shippers sh ON o.shipVia=sh.shipperID WHERE o.shipCity='Madrid' AND sh.companyName='Speedy Express'
+    """
+  val shippedToMadridBySpeedyResult=spSession.sql(shippedToMadridBySpeedy)
+  shippedToMadridBySpeedyResult.show()
+
 }
